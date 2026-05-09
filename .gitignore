@@ -1,0 +1,5 @@
+secrets.yaml
+tmp_esphome_check.yaml
+*.txt
+.esphome/
+build/
