@@ -1,0 +1,1320 @@
+# =====================
+# GREENHOUSE AI
+# =====================
+# Version: 1.4.1
+# Based on: 1.4.0
+# Date: 2026-05-10
+# Changes:
+# - Added VPD diagnostics and humidity clamping for VPD calculations.
+# - Kept base automation logic unchanged.
+#
+# Version history:
+# - 1.3.4: Base greenhouse automation.
+# - 1.3.5: Added ESPHome project version and Firmware Version text sensor.
+# - 1.3.6: Added release header and explicit changelog block.
+# - 1.3.7: Added read-only diagnostics for core automation state.
+# - 1.3.8: Translated Home Assistant entity names to Polish.
+# - 1.3.9: Prepared GitHub-safe configuration with external secrets.
+# - 1.4.0: Renamed device-specific secrets to avoid conflicts with other ESP nodes.
+# - 1.4.1: Added VPD status and humidity value used for VPD.
+
+esphome:
+  name: ai-szklarnia
+  friendly_name: Szklarnia AI PRO FINAL 1.4.1
+  project:
+    name: esz.greenhouse_ai
+    version: "1.4.1"
+  on_boot:
+    priority: -10
+
+    then:
+      - delay: 60s
+
+      - if:
+          condition:
+            binary_sensor.is_on: water_state
+
+          then:
+            - switch.turn_on: relay_1
+
+          else:
+            - switch.turn_off: relay_1
+            
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# =====================
+# API / OTA
+# =====================
+api:
+  encryption:
+    key: !secret szklarnia_api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret szklarnia_ota_password
+
+safe_mode:
+
+web_server:
+  port: 80
+
+# =====================
+# WIFI
+# =====================
+wifi:
+  reboot_timeout: 15min
+  power_save_mode: none
+
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+
+    - ssid: !secret wifi_ssid_alternate
+      password: !secret wifi_password_alternate
+
+  ap:
+    ssid: "GREENHOUSE-FALLBACK"
+    password: !secret szklarnia_fallback_ap_password
+
+logger:
+  level: INFO
+
+mdns:
+  disabled: false
+
+captive_portal:
+
+# =====================
+# TIME / SUN
+# =====================
+# =====================
+# TIME / SUN
+# =====================
+# =====================
+# RESET DAILY COUNTER
+# =====================
+time:
+  - platform: sntp
+    id: sntp_time
+
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 0
+
+        then:
+          - lambda: |-
+              id(daily_water_counter) = 0;
+
+sun:
+  id: sun_system
+  latitude: 50.07
+  longitude: 18.75
+
+# =====================
+# I2C
+# =====================
+i2c:
+  sda: GPIO21
+  scl: GPIO22
+  scan: true
+
+# =====================
+# GLOBALS
+# =====================
+globals:
+  - id: last_watering_time
+    type: unsigned long
+    initial_value: "0"
+
+  - id: water_ha
+    type: bool
+    initial_value: "false"
+
+  - id: watering_active
+    type: bool
+    initial_value: "false"
+
+  - id: plant_health
+    type: float
+    initial_value: "100"
+
+  - id: daily_water_counter
+    type: int
+    restore_value: yes
+    initial_value: "0" 
+    
+  - id: wet_counter
+    type: int
+    initial_value: "0"
+    # =====================
+    # STATIC SOIL ENGINE v3.3
+    # =====================
+  - id: soil_min_1
+    type: float
+    restore_value: yes
+    initial_value: "964"
+
+  - id: soil_max_1
+    type: float
+    restore_value: yes
+    initial_value: "3184"
+    
+  - id: soil_min_2
+    type: float
+    restore_value: yes
+    initial_value: "985"
+
+  - id: soil_max_2
+    type: float
+    restore_value: yes
+    initial_value: "3162"
+
+  - id: soil1_ready
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+  - id: soil2_ready
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+  - id: soil_fault_1
+    type: bool
+    restore_value: yes
+    initial_value: "false"
+    
+  - id: soil_fault_2
+    type: bool
+    restore_value: yes
+    initial_value: "false"
+    
+    # =====================
+     # AI PREDICTION
+     # =====================
+
+  - id: soil_prev
+    type: float
+    initial_value: "0"
+
+  - id: soil_drop_rate
+    type: float
+    initial_value: "0"
+
+  - id: predicted_hours_to_dry
+    type: float
+    initial_value: "0"
+
+  - id: heat_stress
+    type: float
+    initial_value: "0"
+    
+
+
+
+  # =====================
+  # WEATHER AI
+  # =====================
+
+  - id: weather_factor
+    type: float
+    initial_value: "1.0"
+
+  - id: ha_weather_online
+    type: bool
+    initial_value: "false"
+
+# =====================
+# SENSORS
+# =====================
+sensor:
+
+  # =====================
+  # WIFI
+  # =====================
+  - platform: wifi_signal
+    name: "Sygnał WiFi dB"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: diagnostic
+
+  - platform: copy
+    source_id: wifi_signal_db
+    name: "Sygnał WiFi %"
+    filters:
+      - lambda: return std::min(std::max(2.0f * (x + 100.0f), 0.0f), 100.0f);
+    unit_of_measurement: "%"
+    entity_category: diagnostic
+
+  # =====================
+  # BME280
+  # =====================
+  - platform: bme280_i2c
+    temperature:
+      name: "Temperatura"
+      id: temp
+
+    humidity:
+      name: "Wilgotność"
+      id: hum
+
+    address: 0x76
+    update_interval: 30s
+
+  # =====================
+  # LIGHT
+  # =====================
+  - platform: bh1750
+    name: "Natężenie światła"
+    id: lux
+    address: 0x23
+    update_interval: 30s
+
+  # =====================
+  # SOIL SENSOR 1
+  # =====================
+  - platform: adc
+    pin: GPIO34
+    id: soil_raw_1
+    name: "Surowy odczyt gleby 1"
+    attenuation: 12db
+    update_interval: 10s
+    raw: true
+    unit_of_measurement: ""
+    accuracy_decimals: 0
+
+    filters:
+      - median:
+          window_size: 5
+          send_every: 1
+
+  # =====================
+  # SOIL SENSOR 2
+  # =====================
+  - platform: adc
+    pin: GPIO35
+    id: soil_raw_2
+    name: "Surowy odczyt gleby 2"
+    attenuation: 12db
+    update_interval: 10s
+    raw: true
+    unit_of_measurement: ""
+    accuracy_decimals: 0
+
+    filters:
+      - median:
+          window_size: 5
+          send_every: 1
+
+  # =====================
+  # SOIL SENSOR 1 %
+  # =====================
+  - platform: template
+    name: "Wilgotność gleby 1 %"
+    id: soil_1_pct
+    unit_of_measurement: "%"
+    update_interval: 10s
+
+    lambda: |-
+
+      float raw = id(soil_raw_1).state;
+
+      float dry = 3200.0;
+      float wet = 960.0;
+      
+      if (dry < wet) {
+        float tmp = dry;
+        dry = wet;
+        wet = tmp;
+      }
+
+      if (fabs(dry - wet) < 50) return NAN;
+      
+      
+      float percent =
+        ((dry - raw) / (dry - wet)) * 100.0;
+        
+      
+      if (percent > 100) percent = 100;
+
+      if (percent < 0) percent = 0;
+
+      return percent;
+
+  # =====================
+  # SOIL SENSOR 2 %
+  # =====================
+  - platform: template
+    name: "Wilgotność gleby 2 %"
+    id: soil_2_pct
+    unit_of_measurement: "%"
+    update_interval: 10s
+
+    lambda: |-
+
+      float raw = id(soil_raw_2).state;
+
+      float dry = 3200.0;
+      float wet = 980.0;
+
+      if (dry < wet) {
+        float tmp = dry;
+        dry = wet;
+        wet = tmp;
+      }
+      
+      if (fabs(dry - wet) < 50) return NAN;
+        
+      float percent =
+        ((dry - raw) / (dry - wet)) * 100.0;
+        
+      if (percent > 100) percent = 100;
+
+      if (percent < 0) percent = 0;
+
+      return percent;
+
+  # =====================
+  # ACTIVE SOIL
+  # =====================
+  - platform: template
+    name: "Wilgotność gleby %"
+    id: soil
+    unit_of_measurement: "%"
+    update_interval: 10s
+
+    lambda: |-
+
+      float soil1 = id(soil_1_pct).state;
+      float soil2 = id(soil_2_pct).state;
+      std::string mode = id(soil_sensor_mode).current_option();
+
+      if (mode == "SENSOR_1") {
+        if (!isnan(soil1)) return soil1;
+        if (!isnan(soil2)) return soil2;
+        return NAN;
+      }
+      if (mode == "SENSOR_2") {
+        if (!isnan(soil2)) return soil2;
+        if (!isnan(soil1)) return soil1;
+        return NAN;
+      }
+
+      if (isnan(soil1) && isnan(soil2)) return NAN;
+      if (isnan(soil1)) return soil2;
+      if (isnan(soil2)) return soil1;
+
+      // stabilizacja (ważne!)
+      return (soil1 * 0.6) + (soil2 * 0.4);
+
+  # =====================
+  # PLANT HEALTH
+  # =====================
+  - platform: template
+    name: "Kondycja roślin"
+    id: plant_health_sensor
+    unit_of_measurement: "%"
+    lambda: |-
+      return id(plant_health);
+
+
+      
+  # =====================
+  # AI DRY PREDICTION
+  # =====================
+
+  - platform: template
+    name: "Tempo wysychania gleby"
+    id: soil_drop_rate_sensor
+    unit_of_measurement: "%/h"
+    accuracy_decimals: 2
+
+    lambda: |-
+      return id(soil_drop_rate);
+
+  - platform: template
+    name: "Prognoza czasu do przesuszenia"
+    id: predicted_hours_sensor
+    unit_of_measurement: "h"
+    accuracy_decimals: 1
+
+    lambda: |-
+      return id(predicted_hours_to_dry);
+
+  # =====================
+  # HEAT STRESS AI
+  # =====================
+
+  - platform: template
+    name: "Indeks stresu cieplnego"
+    id: heat_stress_sensor
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+
+    lambda: |-
+      return id(heat_stress);
+
+  - platform: template
+    name: "Punkt rosy"
+    id: dew_point
+    unit_of_measurement: "°C"
+    accuracy_decimals: 1
+
+    lambda: |-
+      float t = id(temp).state;
+      float rh = id(hum).state;
+      if (isnan(t) || isnan(rh)) return NAN;
+      float a = 17.27f;
+      float b = 237.7f;
+      float alpha = ((a * t) / (b + t)) + log(std::max(std::min(rh, 100.0f), 0.1f) / 100.0f);
+      return (b * alpha) / (a - alpha);
+
+  - platform: template
+    name: "VPD"
+    id: vpd
+    unit_of_measurement: "kPa"
+    accuracy_decimals: 3
+
+    lambda: |-
+      float t = id(temp).state;
+      float rh = id(hum).state;
+      if (isnan(t) || isnan(rh)) return NAN;
+      rh = std::max(0.0f, std::min(rh, 100.0f));
+      float es = 0.6108f * exp((17.27f * t) / (t + 237.3f));
+      float ea = es * (rh / 100.0f);
+      float vpd = es - ea;
+      return std::max(0.0f, vpd);
+
+  - platform: template
+    name: "Wilgotność do VPD"
+    id: humidity_for_vpd
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    entity_category: diagnostic
+
+    lambda: |-
+      float rh = id(hum).state;
+      if (isnan(rh)) return NAN;
+      return std::max(0.0f, std::min(rh, 100.0f));
+
+  # =====================
+  # HOME ASSISTANT WEATHER
+  # =====================
+
+  - platform: homeassistant
+    id: owm_temp
+    entity_id: sensor.openweathermap_temperatura
+    internal: true
+
+  - platform: homeassistant
+    id: owm_humidity
+    entity_id: sensor.openweathermap_wilgotnosc
+    internal: true
+
+  - platform: homeassistant
+    id: owm_clouds
+    entity_id: sensor.openweathermap_cloud_coverage
+    internal: true
+
+  - platform: homeassistant
+    id: owm_uv
+    entity_id: sensor.openweathermap_uv_index
+    internal: true
+
+  - platform: homeassistant
+    id: owm_wind
+    entity_id: sensor.openweathermap_predkosc_wiatru
+    internal: true
+
+  - platform: homeassistant
+    id: owm_dew
+    entity_id: sensor.openweathermap_dew_point_temperature
+    internal: true
+
+  - platform: template
+    name: "Współczynnik pogody AI"
+    id: weather_factor_sensor
+    unit_of_measurement: "x"
+
+    lambda: |-
+      return id(weather_factor);
+
+  # =====================
+  # DIAGNOSTICS
+  # =====================
+  - platform: template
+    name: "Dzienny licznik podlewania"
+    id: daily_water_count_sensor
+    icon: mdi:counter
+    accuracy_decimals: 0
+    entity_category: diagnostic
+    lambda: |-
+      return id(daily_water_counter);
+
+# =====================
+# SETTINGS
+# =====================
+number:
+  - platform: template
+    name: "Temperatura dzień"
+    id: temp_day
+    min_value: 15
+    max_value: 40
+    step: 0.5
+    optimistic: true
+    initial_value: 26
+
+  - platform: template
+    name: "Temperatura noc"
+    id: temp_night
+    min_value: 10
+    max_value: 30
+    step: 0.5
+    optimistic: true
+    initial_value: 18
+
+# =====================
+# SELECTS
+# =====================
+select:
+  - platform: template
+    name: "Tryb podlewania"
+    id: irrigation_mode
+    options:
+      - "OFF"
+      - "ESP_PUMP"
+      - "HOME_ASSISTANT"
+    initial_option: "ESP_PUMP"
+    optimistic: true
+
+  - platform: template
+    name: "Profil roślin"
+    id: plant_profile
+    options:
+      - "UNIVERSAL"
+      - "TOMATO"
+      - "LETTUCE"
+      - "HERBS"
+    initial_option: "UNIVERSAL"
+    optimistic: true
+
+  - platform: template
+    name: "Tryb czujników gleby"
+    id: soil_sensor_mode
+    options:
+      - "SENSOR_1"
+      - "SENSOR_2"
+      - "AVERAGE"
+    initial_option: "AVERAGE"
+    optimistic: true
+  - platform: template
+    name: "Tryb pogody AI"
+    id: weather_ai_mode
+
+    options:
+      - "LOCAL_ONLY"
+      - "HA_ASSIST"
+
+    initial_option: "HA_ASSIST"
+    optimistic: true
+# =====================
+# SWITCHES
+# =====================
+switch:
+
+  - platform: gpio
+    pin: GPIO14
+    id: relay_1
+    name: "Przekaźnik wody"
+
+  - platform: gpio
+    pin: GPIO25
+    id: pump
+    name: "Pompa"
+
+    restore_mode: ALWAYS_OFF
+
+    on_turn_on:
+      - delay: 30s
+      - switch.turn_off: pump
+
+  - platform: gpio
+    pin: GPIO26
+    id: fan
+    name: "Wentylator"
+
+    restore_mode: ALWAYS_OFF
+
+  - platform: gpio
+    pin: GPIO27
+    id: light
+    name: "Oświetlenie"
+
+
+# =====================
+# BINARY SENSORS
+# =====================
+binary_sensor:
+
+  - platform: status
+    name: "Status ESP"
+
+  - platform: template
+    name: "Jest dzień"
+    id: is_day
+
+    lambda: |-
+      return id(sun_system).elevation() > 5;
+
+  # =====================
+  # DIAGNOSTICS
+  # =====================
+  - platform: template
+    name: "Podlewanie aktywne"
+    id: watering_active_status
+    entity_category: diagnostic
+    lambda: |-
+      return id(watering_active);
+
+  - platform: template
+    name: "Oczekujące żądanie wody HA"
+    id: ha_water_request_pending
+    entity_category: diagnostic
+    lambda: |-
+      return id(water_ha);
+
+  - platform: template
+    name: "Błąd czujnika gleby 1"
+    id: soil_sensor_1_fault_status
+    entity_category: diagnostic
+    lambda: |-
+      return id(soil_fault_1);
+
+  - platform: template
+    name: "Błąd czujnika gleby 2"
+    id: soil_sensor_2_fault_status
+    entity_category: diagnostic
+    lambda: |-
+      return id(soil_fault_2);
+
+  - platform: template
+    name: "Podlewanie zablokowane przez czujniki gleby"
+    id: irrigation_blocked_by_soil_fault
+    entity_category: diagnostic
+    lambda: |-
+      return id(soil_fault_1) && id(soil_fault_2);
+
+  - platform: template
+    name: "Pogoda HA online"
+    id: ha_weather_online_status
+    entity_category: diagnostic
+    lambda: |-
+      return id(ha_weather_online);
+
+  - platform: gpio
+    pin:
+      number: GPIO33
+      mode: INPUT_PULLUP
+      inverted: true
+
+    name: "Przycisk woda"
+
+    filters:
+      - delayed_on: 50ms
+
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: switch.z2m_woda_ogrod
+
+  - platform: homeassistant
+    id: water_state
+    entity_id: switch.z2m_woda_ogrod
+    internal: true
+
+    on_state:
+      then:
+        - if:
+            condition:
+              binary_sensor.is_on: water_state
+
+            then:
+              - switch.turn_on: relay_1
+
+            else:
+              - switch.turn_off: relay_1
+
+# =====================
+# SCRIPTS
+# =====================
+script:
+  - id: run_pump
+
+    parameters:
+      duration: int
+
+    then:
+      - switch.turn_on: pump
+      - delay: !lambda "return duration;"
+      - switch.turn_off: pump
+
+# =====================
+# MAIN LOOP
+# =====================
+interval:
+
+  # =====================
+  # AI LOOP
+  # =====================
+  - interval: 20s
+
+    then:
+      - lambda: |-
+
+          float t = id(temp).state;
+          float h = id(hum).state;
+          float soil_val = id(soil).state;
+          float raw1 = id(soil_raw_1).state;
+          float raw2 = id(soil_raw_2).state;
+
+          if (isnan(t) || isnan(h)) return;
+
+          
+
+          // =====================
+          // FROST PROTECTION
+          // =====================
+          if (t < 3) {
+
+            id(fan).turn_off();
+
+            if (!id(light).state) {
+              id(light).turn_on();
+            }
+
+            return;
+          }
+
+          // =====================
+          // PROFILES
+          // =====================
+          float soil_min_target = 40;
+          float soil_max_target = 55;
+          float temp_offset = 0;
+
+          std::string profile = id(plant_profile).current_option();
+
+          if (profile == "TOMATO") {
+            soil_min_target = 45;
+            soil_max_target = 65;
+            temp_offset = 2;
+          }
+
+          else if (profile == "LETTUCE") {
+            soil_min_target = 50;
+            soil_max_target = 70;
+            temp_offset = -2;
+          }
+
+          else if (profile == "HERBS") {
+            soil_min_target = 35;
+            soil_max_target = 50;
+          }
+
+          float target_temp = (
+            id(is_day).state
+            ? id(temp_day).state
+            : id(temp_night).state
+          ) + temp_offset;
+
+          // =====================
+          // WATERING SAFETY CHECK
+          // =====================
+          if (id(soil_fault_1) &&
+              id(soil_fault_2)) {
+              
+            ESP_LOGW(
+              "watering",
+              "BLOCKED - all soil sensors fault"
+            );
+            return;
+          }
+
+          // =====================
+          // WATERING
+          // =====================
+          bool cooldown =
+            (millis() - id(last_watering_time))
+            > 600000;
+
+          std::string mode =
+            id(irrigation_mode).current_option();
+
+        
+    
+          
+          // start watering
+          
+          if (!isnan(soil_val) &&
+              soil_val < soil_min_target &&
+              cooldown) {
+
+            id(watering_active) = true;
+          }
+
+          
+          // stop watering hysteresis
+          if (!isnan(soil_val) &&
+              soil_val > soil_max_target) {
+
+            id(wet_counter)++;
+
+            if (id(wet_counter) > 3) {
+              id(watering_active) = false;
+              id(wet_counter) = 0;
+            }
+
+          } else {
+            id(wet_counter) = 0;
+          }
+            
+          // execute watering
+          if (id(watering_active) &&
+              mode != "OFF" &&
+              cooldown) {
+
+            if (id(daily_water_counter) >= 10) {
+              return;
+            }
+
+            int duration = 8000;
+
+            if (!isnan(soil_val)) {
+              duration =
+                5000 + ((100 - soil_val) * 150);
+            }
+
+            duration =
+              std::max(3000,
+              std::min(duration, 20000));
+
+            ESP_LOGI(
+              "watering",
+              "START %.1f%% -> %d ms",
+              soil_val,
+              duration
+            );
+            if (mode == "HOME_ASSISTANT") {
+              id(water_ha) = true;
+            }
+
+            else {
+              id(run_pump).execute(duration);
+            }
+
+            id(last_watering_time) =
+              millis();
+
+            id(watering_active) =
+              false;
+
+            id(daily_water_counter) += 1;
+          }
+
+          // =====================
+          // FAN
+          // =====================
+          if (t > target_temp + 1) {
+            id(fan).turn_on();
+          }
+
+          else if (t < target_temp - 0.5) {
+            id(fan).turn_off();
+          }
+
+          // =====================
+          // LIGHT
+          // =====================
+          float lux_val = id(lux).state;
+
+          if (lux_val > 70000) {
+            lux_val = 12000;
+          }
+
+          if (id(is_day).state &&
+              lux_val < 8000) {
+
+            id(light).turn_on();
+          }
+
+          else if (lux_val > 12000 ||
+                   !id(is_day).state) {
+
+            id(light).turn_off();
+          }
+
+          // =====================
+          // HEALTH AI
+          // =====================
+          float health = 100;
+
+          if (t > target_temp + 3 ||
+              t < target_temp - 3) {
+
+            health -= 20;
+          }
+
+          if (!isnan(soil_val) &&
+              soil_val < 30) {
+
+            health -= 30;
+          }
+
+          if (lux_val < 3000 &&
+              id(is_day).state) {
+
+            health -= 10;
+          }
+
+          float vpd_val = id(vpd).state;
+          if (!isnan(vpd_val)) {
+            if (vpd_val > 1.6) health -= 10;
+            if (vpd_val < 0.4) health -= 10;
+          }
+
+          id(plant_health) = health;
+
+  # =====================
+  # HA BRIDGE
+  - interval: 3s
+
+    then:
+      - if:
+          condition:
+            lambda: |-
+              return id(water_ha);
+
+          then:
+            - homeassistant.service:
+                service: switch.turn_on
+                data:
+                  entity_id: switch.z2m_woda_ogrod
+
+            - lambda: |-
+                id(water_ha) = false;
+
+  # =====================
+  # AI ANALYSIS
+  
+  - interval: 5min
+
+    then:
+      - lambda: |-
+
+          float soil_now = id(soil).state;
+          float t = id(temp).state;
+          float h = id(hum).state;
+          float lux_val = id(lux).state;
+
+          if (isnan(soil_now)) return;
+
+          // =====================
+          // SOIL DROP RATE
+          // =====================
+
+          if (id(soil_prev) > 0) {
+
+            float diff =
+              id(soil_prev) - soil_now;
+
+            // 5 min sample -> x12 = per hour
+            id(soil_drop_rate) =
+              diff * 12.0;
+
+            // ignore invalid spikes
+            if (id(soil_drop_rate) < 0)
+              id(soil_drop_rate) = 0;
+
+            if (id(soil_drop_rate) > 30)
+              id(soil_drop_rate) = 30;
+          }
+
+          id(soil_prev) = soil_now;
+
+          // =====================
+          // PREDICT HOURS TO DRY
+          // =====================
+
+          float target = 40;
+
+          if (id(soil_drop_rate) > 0.1) {
+
+            id(predicted_hours_to_dry) =
+              ((soil_now - target)
+              / id(soil_drop_rate))
+              / id(weather_factor);
+            if (id(predicted_hours_to_dry) < 0)
+              id(predicted_hours_to_dry) = 0;
+
+            if (id(predicted_hours_to_dry) > 72)
+              id(predicted_hours_to_dry) = 72;
+          }
+
+          // =====================
+          // HEAT STRESS AI
+          // =====================
+
+          if (!isnan(t) &&
+              !isnan(h) &&
+              !isnan(lux_val)) {
+
+            float stress = 0;
+
+            // temperature impact
+            stress += t * 2.0;
+
+            // humidity impact
+            stress += h * 0.3;
+
+            // light impact
+            stress += lux_val * 0.0005;
+
+            // normalize
+            stress = stress / 2.0;
+
+            if (stress > 100)
+              stress = 100;
+
+            id(heat_stress) = stress;
+          }
+  # =====================
+  # SELF-HEAL v3.3 FIXED
+  
+  - interval: 2min          
+  
+    then:
+      - lambda: |-
+          float diff1 = fabs(id(soil_max_1) - id(soil_min_1));
+          float diff2 = fabs(id(soil_max_2) - id(soil_min_2));
+
+          // =====================
+          // SENSOR 1 FAULT
+          // =====================
+          if (diff1 < 80 || isnan(diff1) || diff1 < 1.0f) {
+            id(soil_fault_1) = true;
+            id(soil1_ready) = false;
+          } else {
+            id(soil_fault_1) = false;
+            id(soil1_ready) = true;
+          }
+
+          // =====================
+          // SENSOR 2 FAULT
+          // =====================
+          if (diff2 < 80 || isnan(diff2) || diff2 < 1.0f) {
+            id(soil_fault_2) = true;
+            id(soil2_ready) = false;
+          } else {
+            id(soil_fault_2) = false;
+            id(soil2_ready) = true;
+          }
+  # =====================
+  # WEATHER AI ANALYSIS
+  
+  - interval: 10min
+
+    then:
+      - lambda: |-
+
+          float factor = 1.0;
+          std::string weather_mode =
+            id(weather_ai_mode).current_option();
+
+          if (weather_mode == "LOCAL_ONLY") {
+
+            id(weather_factor) = 1.0;
+
+          ESP_LOGI(
+            "weather_ai",
+            "LOCAL_ONLY mode");
+
+          return;
+          }
+          bool valid = true;
+
+          float ext_temp = id(owm_temp).state;
+          float ext_hum = id(owm_humidity).state;
+          float clouds = id(owm_clouds).state;
+          float uv = id(owm_uv).state;
+          float wind = id(owm_wind).state;
+
+          // =====================
+          // VALIDATION
+          // =====================
+
+          if (isnan(ext_temp)) valid = false;
+          if (isnan(ext_hum)) valid = false;
+          if (isnan(clouds)) valid = false;
+          if (isnan(uv)) valid = false;
+          if (isnan(wind)) valid = false;
+
+          id(ha_weather_online) = valid;
+
+          // =====================
+          // FAILOVER
+          // =====================
+
+          if (!valid) {
+
+            id(weather_factor) = 1.0;
+
+            ESP_LOGW(
+              "weather_ai",
+              "HA weather offline -> LOCAL MODE");
+
+            return;
+          }
+
+          // =====================
+          // TEMPERATURE
+          // =====================
+
+          if (ext_temp > 25)
+            factor += 0.20;
+
+          if (ext_temp > 30)
+            factor += 0.25;
+
+          // =====================
+          // UV
+          // =====================
+
+          if (uv > 5)
+            factor += 0.15;
+
+          if (uv > 8)
+            factor += 0.20;
+
+          // =====================
+          // CLOUDS
+          // =====================
+
+          if (clouds > 80)
+            factor -= 0.15;
+
+          if (clouds > 95)
+            factor -= 0.10;
+
+          // =====================
+          // WIND
+          // =====================
+
+          if (wind > 15)
+            factor += 0.10;
+
+          // =====================
+          // HUMIDITY
+          // =====================
+
+          if (ext_hum > 85)
+            factor -= 0.10;
+
+          if (ext_hum < 40)
+            factor += 0.10;
+
+          // =====================
+          // LIMITS
+          // =====================
+
+          if (factor < 0.5)
+            factor = 0.5;
+
+          if (factor > 2.0)
+            factor = 2.0;
+
+          id(weather_factor) = factor;
+
+          ESP_LOGI(
+            "weather_ai",
+            "Weather factor: %.2f",
+            factor);
+            
+# =====================
+# BUTTONS
+button:
+  - platform: restart
+    name: "Restart ESP"
+
+  - platform: template
+    name: "Woda (wirtualny przycisk)"
+    icon: mdi:water
+
+    on_press:
+      - homeassistant.service:
+          service: switch.toggle
+          data:
+            entity_id: switch.z2m_woda_ogrod
+
+# =====================
+# TEXT SENSORS
+text_sensor:
+  - platform: template
+    name: "Wersja oprogramowania"
+    icon: mdi:tag
+    entity_category: diagnostic
+    lambda: |-
+      return {"1.4.1"};
+
+  - platform: template
+    name: "Status diagnostyczny szklarni"
+    icon: mdi:clipboard-pulse
+    entity_category: diagnostic
+    lambda: |-
+      if (id(soil_fault_1) && id(soil_fault_2)) {
+        return {"BLOCKED_SOIL_SENSORS"};
+      }
+      if (id(watering_active)) {
+        return {"WATERING_ACTIVE"};
+      }
+      if (!id(ha_weather_online) &&
+          id(weather_ai_mode).current_option() == "HA_ASSIST") {
+        return {"HA_WEATHER_OFFLINE"};
+      }
+      if (id(daily_water_counter) >= 10) {
+        return {"DAILY_LIMIT_REACHED"};
+      }
+      return {"OK"};
+
+  - platform: template
+    name: "Status VPD"
+    icon: mdi:water-percent
+    entity_category: diagnostic
+    lambda: |-
+      float vpd_val = id(vpd).state;
+      float rh = id(hum).state;
+      if (isnan(vpd_val) || isnan(rh)) {
+        return {"BRAK_DANYCH"};
+      }
+      if (rh >= 99.5f) {
+        return {"ZA_WILGOTNO_RH_100"};
+      }
+      if (vpd_val < 0.4f) {
+        return {"ZA_WILGOTNO"};
+      }
+      if (vpd_val > 1.6f) {
+        return {"ZA_SUCHO"};
+      }
+      return {"OK"};
+
+  - platform: wifi_info
+
+    ip_address:
+      name: "Adres IP"
+
+    ssid:
+      name: "Połączona sieć WiFi"
