@@ -15,6 +15,7 @@ Każda wersja firmware jest zapisywana w osobnym pliku:
 - `szklarnia_1.4.0.yaml` - sekrety urządzenia mają prefiks `szklarnia_`
 - `szklarnia_1.4.1.yaml` - diagnostyka VPD i wilgotność ograniczona do 0-100%
 - `szklarnia_1.4.2.yaml` - progi podlewania + ręczna kalibracja czujników gleby (min/max)
+- `szklarnia_1.4.3.yaml` - tryb wentylatora (temp / temp+RH / temp+VPD) + progi w HA
 
 ## Sekrety
 
