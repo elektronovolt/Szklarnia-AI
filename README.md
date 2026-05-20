@@ -18,6 +18,7 @@ Każda wersja firmware jest zapisywana w osobnym pliku:
 - `szklarnia_1.4.3.yaml` - tryb wentylatora (temp / temp+RH / temp+VPD) + progi w HA
 - `szklarnia_1.4.4.yaml` - poprawka kompilacji (konflikt nazwy fan_mode)
 - `szklarnia_1.4.5.yaml` - kalibracja gleby: 2 wspólne suwaki (MIN mokro / MAX sucho)
+- `szklarnia_1.4.6.yaml` - kalibracja gleby: zakresy pod czujnik (mokro~950, sucho~3200)
 
 ## Sekrety
 
