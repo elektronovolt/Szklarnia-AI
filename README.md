@@ -21,6 +21,7 @@ Każda wersja firmware jest zapisywana w osobnym pliku:
 - `szklarnia_1.4.6.yaml` - kalibracja gleby: zakresy pod czujnik (mokro~950, sucho~3200)
 - `szklarnia_1.4.7.yaml` - encje pomocnicze do dashboardu (Status gleby, Wentylator zablokowany)
 - `szklarnia_1.4.8.yaml` - mocniejsze filtrowanie szumow odczytow wilgotnosci gleby
+- `szklarnia_1.4.9.yaml` - predykcyjne podlewanie z lokalnych czujnikow i HA/OpenWeather
 
 ## Sekrety
 
