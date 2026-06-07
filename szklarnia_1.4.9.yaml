@@ -1043,8 +1043,28 @@ script:
 
     then:
       - switch.turn_on: pump
-      - delay: !lambda "return duration;"
+      - delay: !lambda "return (uint32_t) duration;"
       - switch.turn_off: pump
+
+  - id: run_ha_water
+
+    parameters:
+      duration: int
+
+    then:
+      - lambda: |-
+          id(water_ha) = true;
+      - homeassistant.service:
+          service: switch.turn_on
+          data:
+            entity_id: switch.z2m_woda_ogrod
+      - delay: !lambda "return (uint32_t) duration;"
+      - homeassistant.service:
+          service: switch.turn_off
+          data:
+            entity_id: switch.z2m_woda_ogrod
+      - lambda: |-
+          id(water_ha) = false;
 
 # =====================
 # MAIN LOOP
@@ -1282,7 +1302,7 @@ interval:
               duration
             );
             if (mode == "HOME_ASSISTANT") {
-              id(water_ha) = true;
+              id(run_ha_water).execute(duration);
             }
 
             else {
@@ -1386,25 +1406,6 @@ interval:
           }
 
           id(plant_health) = health;
-
-  # =====================
-  # HA BRIDGE
-  - interval: 3s
-
-    then:
-      - if:
-          condition:
-            lambda: |-
-              return id(water_ha);
-
-          then:
-            - homeassistant.service:
-                service: switch.turn_on
-                data:
-                  entity_id: switch.z2m_woda_ogrod
-
-            - lambda: |-
-                id(water_ha) = false;
 
   # =====================
   # AI ANALYSIS
