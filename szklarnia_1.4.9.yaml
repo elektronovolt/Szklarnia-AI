@@ -1197,13 +1197,13 @@ interval:
           }
 
           // Weather factor is calculated from HA/OpenWeather when available.
-          float weather_factor = id(weather_factor);
-          if (weather_factor > 1.0f) {
-            pressure += (weather_factor - 1.0f) * 8.0f;
-            duration_multiplier += (weather_factor - 1.0f) * 0.20f;
-          } else if (weather_factor < 1.0f) {
-            pressure -= (1.0f - weather_factor) * 5.0f;
-            duration_multiplier -= (1.0f - weather_factor) * 0.10f;
+          float weather_ai_factor = id(weather_factor);
+          if (weather_ai_factor > 1.0f) {
+            pressure += (weather_ai_factor - 1.0f) * 8.0f;
+            duration_multiplier += (weather_ai_factor - 1.0f) * 0.20f;
+          } else if (weather_ai_factor < 1.0f) {
+            pressure -= (1.0f - weather_ai_factor) * 5.0f;
+            duration_multiplier -= (1.0f - weather_ai_factor) * 0.10f;
           }
 
           // Direct HA/OpenWeather signals. These are ignored automatically
