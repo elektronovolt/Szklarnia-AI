@@ -1,1 +1,445 @@
+title: Szklarnia AI (PRO Glass)
+views:
+  - title: Panel
+    path: szklarnia
+    icon: mdi:greenhouse
+    type: custom:grid-layout
+    layout:
+      grid-template-columns: 380px 1fr
+      grid-template-rows: auto
+      grid-template-areas: |
+        "sidebar main"
+      mediaquery:
+        "(max-width: 900px)":
+          grid-template-columns: 1fr
+          grid-template-areas: |
+            "main"
+            "sidebar"
+    cards:
+      - view_layout:
+          grid-area: sidebar
+        type: custom:stack-in-card
+        mode: vertical
+        card_mod:
+          style: |
+            ha-card {
+              border-radius: 14px;
+              background: rgba(24, 28, 34, 0.55);
+              backdrop-filter: blur(14px);
+              -webkit-backdrop-filter: blur(14px);
+              border: 1px solid rgba(255,255,255,0.08);
+            }
+        cards:
+          - type: custom:mushroom-title-card
+            title: Szklarnia AI
+            subtitle: Status systemu
+          - type: custom:mushroom-chips-card
+            alignment: start
+            chips:
+              - type: entity
+                entity: >-
+                  sensor.szklarnia_ai_pro_final_1_4_0_status_diagnostyczny_szklarni
+                name: Status
+                icon: mdi:clipboard-pulse
+              - type: entity
+                entity: sensor.szklarnia_ai_pro_final_1_4_0_dzienny_licznik_podlewania
+                name: Podlewania/dzień
+                icon: mdi:counter
+              - type: entity
+                entity: sensor.szklarnia_ai_pro_final_1_4_0_wspolczynnik_pogody_ai
+                name: Pogoda AI
+                icon: mdi:weather-cloudy
+              - type: entity
+                entity: sensor.szklarnia_ai_pro_final_1_4_0_vpd
+                name: VPD
+                icon: mdi:weather-windy
+          - type: custom:mushroom-title-card
+            title: Tryby automatyki
+            subtitle: Konfiguracja
+          - type: custom:mushroom-select-card
+            entity: select.szklarnia_ai_pro_final_1_4_0_tryb_podlewania
+            name: Tryb podlewania
+            icon: mdi:water-pump
+          - type: custom:mushroom-select-card
+            entity: select.szklarnia_ai_pro_final_1_4_6_tryb_wentylatora
+            name: Tryb wentylatora
+            icon: mdi:fan
+          - type: custom:mushroom-select-card
+            entity: select.szklarnia_ai_pro_final_1_4_0_profil_roslin
+            name: Profil roślin
+            icon: mdi:flower
+          - type: custom:mushroom-select-card
+            entity: select.szklarnia_ai_pro_final_1_4_0_tryb_czujnikow_gleby
+            name: Tryb czujników gleby
+            icon: mdi:chart-bell-curve
+          - type: custom:mushroom-select-card
+            entity: select.szklarnia_ai_pro_final_1_4_0_tryb_pogody_ai
+            name: Tryb pogody AI
+            icon: mdi:weather-cloudy
+          - type: custom:mushroom-title-card
+            title: Sterowanie ręczne
+            subtitle: Szybkie akcje
+          - type: grid
+            columns: 2
+            square: false
+            cards:
+              - type: custom:button-card
+                entity: switch.szklarnia_ai_pro_final_1_4_0_wentylator
+                name: Wentylator
+                icon: mdi:fan
+                show_state: true
+                tap_action:
+                  action: toggle
+                styles:
+                  card:
+                    - border-radius: 14px
+                    - padding: 14px
+                    - background: rgba(255,255,255,0.06)
+                    - border: 1px solid rgba(255,255,255,0.10)
+                  name:
+                    - justify-self: start
+                    - font-weight: 600
+                  state:
+                    - justify-self: start
+                    - opacity: 0.8
+                state:
+                  - value: "on"
+                    styles:
+                      card:
+                        - background: rgba(55, 138, 221, 0.18)
+                        - border: 1px solid rgba(55, 138, 221, 0.40)
+                      name:
+                        - color: "#0C447C"
+                      state:
+                        - color: "#185FA5"
+              - type: custom:button-card
+                entity: switch.szklarnia_ai_pro_final_1_4_0_oswietlenie
+                name: Oświetlenie
+                icon: mdi:lightbulb
+                show_state: true
+                tap_action:
+                  action: toggle
+                styles:
+                  card:
+                    - border-radius: 14px
+                    - padding: 14px
+                    - background: rgba(255,255,255,0.06)
+                    - border: 1px solid rgba(255,255,255,0.10)
+                  name:
+                    - justify-self: start
+                    - font-weight: 600
+                  state:
+                    - justify-self: start
+                    - opacity: 0.8
+                state:
+                  - value: "on"
+                    styles:
+                      card:
+                        - background: rgba(239, 159, 39, 0.18)
+                        - border: 1px solid rgba(239, 159, 39, 0.40)
+                      name:
+                        - color: "#633806"
+                      state:
+                        - color: "#854F0B"
+              - type: custom:button-card
+                entity: switch.szklarnia_ai_pro_final_1_4_0_pompa
+                name: Pompa
+                icon: mdi:pump
+                show_state: true
+                tap_action:
+                  action: toggle
+                styles:
+                  card:
+                    - border-radius: 14px
+                    - padding: 14px
+                    - background: rgba(255,255,255,0.06)
+                    - border: 1px solid rgba(255,255,255,0.10)
+                  name:
+                    - justify-self: start
+                    - font-weight: 600
+                  state:
+                    - justify-self: start
+                    - opacity: 0.8
+                state:
+                  - value: "on"
+                    styles:
+                      card:
+                        - background: rgba(29, 158, 117, 0.18)
+                        - border: 1px solid rgba(29, 158, 117, 0.40)
+                      name:
+                        - color: "#085041"
+                      state:
+                        - color: "#0F6E56"
+              - type: custom:button-card
+                entity: button.greenhouse_ai_v10_1_woda_wirtualny_przycisk
+                name: Woda (przycisk)
+                icon: mdi:water
+                show_state: false
+                tap_action:
+                  action: press
+                styles:
+                  card:
+                    - border-radius: 14px
+                    - padding: 14px
+                    - background: rgba(255,255,255,0.06)
+                    - border: 1px solid rgba(255,255,255,0.10)
+                  name:
+                    - justify-self: start
+                    - font-weight: 600
+      - view_layout:
+          grid-area: main
+        type: custom:stack-in-card
+        mode: vertical
+        card_mod:
+          style: |
+            ha-card {
+              border-radius: 14px;
+              background: rgba(24, 28, 34, 0.45);
+              backdrop-filter: blur(14px);
+              -webkit-backdrop-filter: blur(14px);
+              border: 1px solid rgba(255,255,255,0.08);
+            }
+        cards:
+          - type: grid
+            columns: 4
+            square: false
+            cards:
+              - type: custom:button-card
+                entity: sensor.szklarnia_ai_pro_final_1_4_0_temperatura
+                name: Temperatura
+                icon: mdi:thermometer
+                show_state: true
+                styles:
+                  card:
+                    - border-radius: 14px
+                    - padding: 14px
+                    - background: rgba(250, 236, 231, 0.85)
+                    - border: 1px solid rgba(216, 90, 48, 0.30)
+                  name:
+                    - justify-self: start
+                    - font-weight: 600
+                    - color: "#D85A30"
+                    - font-size: 12px
+                  state:
+                    - justify-self: start
+                    - font-size: 26px
+                    - color: "#993C1D"
+                  icon:
+                    - color: "#D85A30"
+                state:
+                  - operator: ">"
+                    value: 30
+                    styles:
+                      card:
+                        - background: rgba(250, 193, 193, 0.50)
+                        - border: 1px solid rgba(226, 75, 74, 0.40)
+                      state:
+                        - color: "#A32D2D"
+              - type: custom:button-card
+                entity: sensor.szklarnia_ai_pro_final_1_4_0_wilgotnosc
+                name: Wilgotność
+                icon: mdi:water-percent
+                show_state: true
+                styles:
+                  card:
+                    - border-radius: 14px
+                    - padding: 14px
+                    - background: rgba(230, 241, 251, 0.85)
+                    - border: 1px solid rgba(55, 138, 221, 0.30)
+                  name:
+                    - justify-self: start
+                    - font-weight: 600
+                    - color: "#185FA5"
+                    - font-size: 12px
+                  state:
+                    - justify-self: start
+                    - font-size: 26px
+                    - color: "#0C447C"
+                  icon:
+                    - color: "#185FA5"
+              - type: custom:button-card
+                entity: sensor.szklarnia_ai_pro_final_1_4_0_natezenie_swiatla
+                name: Światło
+                icon: mdi:white-balance-sunny
+                show_state: true
+                styles:
+                  card:
+                    - border-radius: 14px
+                    - padding: 14px
+                    - background: rgba(250, 238, 218, 0.85)
+                    - border: 1px solid rgba(239, 159, 39, 0.30)
+                  name:
+                    - justify-self: start
+                    - font-weight: 600
+                    - color: "#BA7517"
+                    - font-size: 12px
+                  state:
+                    - justify-self: start
+                    - font-size: 26px
+                    - color: "#854F0B"
+                  icon:
+                    - color: "#BA7517"
+              - type: custom:button-card
+                entity: sensor.szklarnia_ai_pro_final_1_4_0_wilgotnosc_gleby
+                name: Gleba (aktywna)
+                icon: mdi:sprout
+                show_state: true
+                styles:
+                  card:
+                    - border-radius: 14px
+                    - padding: 14px
+                    - background: rgba(234, 243, 222, 0.85)
+                    - border: 1px solid rgba(99, 153, 34, 0.30)
+                  name:
+                    - justify-self: start
+                    - font-weight: 600
+                    - color: "#639922"
+                    - font-size: 12px
+                  state:
+                    - justify-self: start
+                    - font-size: 26px
+                    - color: "#3B6D11"
+                  icon:
+                    - color: "#639922"
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Klimat 24h — Temperatura / RH / VPD
+              show_states: true
+              colorize_states: true
+            graph_span: 24h
+            span:
+              start: hour
+            apex_config:
+              chart:
+                toolbar:
+                  show: false
+              stroke:
+                curve: smooth
+            series:
+              - entity: sensor.szklarnia_ai_pro_final_1_4_0_temperatura
+                name: Temp °C
+                type: line
+                stroke_width: 2
+                color: "#D85A30"
+                yaxis_id: default
+              - entity: sensor.szklarnia_ai_pro_final_1_4_0_wilgotnosc
+                name: RH %
+                type: line
+                stroke_width: 2
+                color: "#378ADD"
+                yaxis_id: default
+              - entity: sensor.szklarnia_ai_pro_final_1_4_0_vpd
+                name: VPD kPa
+                type: line
+                stroke_width: 1.5
+                color: "#1D9E75"
+                yaxis_id: vpd
+            yaxis:
+              - id: default
+                decimals: 1
+                apex_config:
+                  forceNiceScale: true
+              - id: vpd
+                opposite: true
+                decimals: 2
+                apex_config:
+                  forceNiceScale: true
+          - type: custom:apexcharts-card
+            header:
+              show: true
+              title: Wilgotność gleby 24h
+              show_states: true
+              colorize_states: true
+            graph_span: 24h
+            span:
+              start: hour
+            apex_config:
+              chart:
+                toolbar:
+                  show: false
+              stroke:
+                curve: smooth
+            series:
+              - entity: sensor.szklarnia_ai_pro_final_1_4_0_wilgotnosc_gleby_1
+                name: Gleba 1
+                type: line
+                stroke_width: 1.5
+                color: "#639922"
+              - entity: sensor.szklarnia_ai_pro_final_1_4_0_wilgotnosc_gleby_2
+                name: Gleba 2
+                type: line
+                stroke_width: 1.5
+                color: "#3B6D11"
+              - entity: sensor.szklarnia_ai_pro_final_1_4_0_wilgotnosc_gleby
+                name: Aktywna
+                type: area
+                stroke_width: 2.5
+                color: "#378ADD"
+                opacity: 0.1
+          - type: custom:stack-in-card
+            mode: vertical
+            card_mod:
+              style: |
+                ha-card {
+                  background: transparent;
+                  box-shadow: none;
+                  border: none;
+                }
+            cards:
+              - type: custom:mushroom-title-card
+                title: Progi i kalibracja
+                subtitle: Podlewanie + wentylator
+              - type: grid
+                columns: 2
+                square: false
+                cards:
+                  - type: custom:mushroom-entity-card
+                    entity: sensor.szklarnia_ai_pro_final_1_4_2_prog_podlewania_start
+                    name: Próg podlewania (start)
+                    icon: mdi:water-plus
+                    icon_color: blue
+                  - type: custom:mushroom-entity-card
+                    entity: sensor.szklarnia_ai_pro_final_1_4_2_prog_podlewania_stop
+                    name: Próg podlewania (stop)
+                    icon: mdi:water-check
+                    icon_color: green
+              - type: grid
+                columns: 2
+                square: false
+                cards:
+                  - type: custom:mushroom-number-card
+                    entity: >-
+                      number.szklarnia_ai_pro_final_1_4_6_kalibracja_gleby_min_mokro
+                    name: Kalibracja MIN mokro
+                    icon: mdi:water
+                    display_mode: slider
+                  - type: custom:mushroom-number-card
+                    entity: >-
+                      number.szklarnia_ai_pro_final_1_4_6_kalibracja_gleby_max_sucho
+                    name: Kalibracja MAX sucho
+                    icon: mdi:water-off
+                    display_mode: slider
+              - type: grid
+                columns: 3
+                square: false
+                cards:
+                  - type: custom:mushroom-number-card
+                    entity: >-
+                      number.szklarnia_ai_pro_final_1_4_6_wentylator_prog_blokady_rh
+                    name: Blokada RH
+                    icon: mdi:water-percent
+                    display_mode: slider
+                  - type: custom:mushroom-number-card
+                    entity: >-
+                      number.szklarnia_ai_pro_final_1_4_6_wentylator_prog_blokady_vpd
+                    name: Blokada VPD
+                    icon: mdi:weather-windy
+                    display_mode: slider
+                  - type: custom:mushroom-number-card
+                    entity: >-
+                      number.szklarnia_ai_pro_final_1_4_6_wentylator_delta_przegrzania
+                    name: Delta przegrzania
+                    icon: mdi:thermometer-plus
+                    display_mode: slider
 
